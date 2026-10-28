@@ -2,9 +2,9 @@
 
 A LilyPond plugin for Neovim. Create scores, adjust the layout, jump between notes and source, and export PDFs.
 
-![Lylip's SVG viewer showing a note's details above its matching LilyPond source in Neovim](media/screenshot-2026-10-27_18-59-45.png)
+Score viewer demo (21 seconds).
 
-Inspect a note in the score and find it in the source. [Watch the 21-second demo](media/screenrecording-2026-10-27_19-01-08.mp4).
+https://github.com/user-attachments/assets/f711b9a6-a14a-4a2a-911b-73626bc4ad5f
 
 ## Features
 
@@ -39,7 +39,7 @@ With lazy.nvim:
 ```lua
 {
   'nkarl/lilyp.nvim',
-  tag = 'v0.1.2',
+  tag = 'v0.1',
   config = function()
     require('lilyp').setup({
       navigation = { enabled = true },
@@ -101,7 +101,7 @@ Replace the minimal lazy.nvim entry above with this one. The dependency configur
 ```lua
 {
   'nkarl/lilyp.nvim',
-  tag = 'v0.1.2',
+  tag = 'v0.1',
   dependencies = {
     {
       'martineausimon/nvim-lilypond-suite',
