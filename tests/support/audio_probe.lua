@@ -27,7 +27,10 @@ function M.inspect(path)
     peak=math.max(peak,math.abs(sample));sum=sum+sample*sample
   end
   local frames=#data/align
+  -- Neovim 0.11 sha256() rejects NUL-containing Lua strings as Blobs.
+  -- Fingerprint a lossless hex encoding on every version, including all PCM bytes.
+  local hex=data:gsub('.',function(byte)return string.format('%02x',byte:byte())end)
   return {channels=channels,sample_rate=rate,frames=frames,duration=frames/rate,
-    peak=peak/32768,rms=math.sqrt(sum/(#data/2))/32768,pcm_sha256=vim.fn.sha256(data)}
+    peak=peak/32768,rms=math.sqrt(sum/(#data/2))/32768,pcm_sha256=vim.fn.sha256(hex)}
 end
 return M

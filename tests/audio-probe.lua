@@ -16,9 +16,21 @@ write(raw)
 local value=probe.inspect(path)
 assert(value.channels==2 and value.sample_rate==44100 and value.frames==3)
 assert(value.duration==3/44100 and value.peak==1 and value.rms==math.sqrt(sum/#samples)/32768)
-assert(value.pcm_sha256=='94b5698a1a4afd6afab9d8cd42b3fd1d599478bea7c353a4caa74649b3d14e34',value.pcm_sha256)
+-- SHA-256 of lowercase hex-encoded PCM, independently calculated with hashlib.
+assert(value.pcm_sha256=='81c969fc51eab3d6900afef4049db2e679db713303a256ddc9a9098c2a33ecf8',value.pcm_sha256)
+-- Changes after embedded NUL bytes must still affect the fingerprint.
+local changed_pcm=pcm:sub(1,-3)..u16(1)
+local changed_body='WAVE'..chunk('JUNK','x')..chunk('fmt ',fmt)..chunk('data',changed_pcm)
+write('RIFF'..u32(#changed_body)..changed_body)
+local changed=probe.inspect(path)
+assert(changed.pcm_sha256=='8419a04af138579bc1c6c2c8b6b6f44da5687f66cafd350029db8b5a03308fa7',changed.pcm_sha256)
+assert(changed.pcm_sha256~=value.pcm_sha256)
+-- Container metadata is not part of the PCM fingerprint.
+local metadata_body='WAVE'..chunk('JUNK','different metadata')..chunk('fmt ',fmt)..chunk('data',pcm)
+write('RIFF'..u32(#metadata_body)..metadata_body)
+assert(probe.inspect(path).pcm_sha256==value.pcm_sha256)
 for _,broken in ipairs({raw:sub(1,-2),'not wave',raw:gsub('WAVE','AIFF',1)}) do
   write(broken);assert(not pcall(probe.inspect,path),'Malformed audio was accepted')
 end
 assert(vim.uv.fs_unlink(path))
-print('PASS: PCM WAV channels/rate/frames, signed extrema, RMS, binary SHA-256, padded chunks, and malformed/truncated payload rejection')
+print('PASS: PCM WAV channels/rate/frames, signed extrema, RMS, NUL-safe PCM fingerprints, metadata independence, padded chunks, and malformed/truncated payload rejection')

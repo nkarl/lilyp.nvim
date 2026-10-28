@@ -39,7 +39,7 @@ With lazy.nvim:
 ```lua
 {
   'nkarl/lilyp.nvim',
-  tag = 'v0.1.1',
+  tag = 'v0.1.2',
   config = function()
     require('lilyp').setup({
       navigation = { enabled = true },
@@ -101,7 +101,7 @@ Replace the minimal lazy.nvim entry above with this one. The dependency configur
 ```lua
 {
   'nkarl/lilyp.nvim',
-  tag = 'v0.1.1',
+  tag = 'v0.1.2',
   dependencies = {
     {
       'martineausimon/nvim-lilypond-suite',
