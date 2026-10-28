@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lylip Score</title>
+<style>
+/* Design tokens. Values preserve the existing viewer appearance.
+   Component exceptions (glyph offsets, letter spacing, hairlines) stay local. */
+:root {
+  color-scheme: light;
+  --color-text: #202b38;
+  --color-text-muted: #566477;
+  --color-focus: #245ac5;
+  --color-workspace: #edf0f3;
+  --color-toolbar: #fffffff5;
+  --color-toolbar-border: #d9dfe7;
+  --color-status-idle: #8290a1;
+  --color-status-current: #398264;
+  --color-warning-text: #855300;
+  --color-warning-marker: #ad710d;
+  --color-error-text: #ab3636;
+  --color-error-marker: #c34b4b;
+  --color-control-border: #d6dde7;
+  --color-control-hover: #f0f4fa;
+  --color-text-disabled: #8793a3;
+  --color-warning-surface: #fff0cf;
+  --color-key-surface: #f0f3f7;
+  --color-key-border: #d8dfe8;
+  --color-inspection-border: #d3dce8;
+  --color-badge-surface: #f3f5f8;
+  --color-source-surface: #f4f6f9;
+  --color-source-highlight: #fff0bb;
+  --color-divider: #e5eaf0;
+  --color-surface: #fff;
+  --color-paper: #fff;
+  --color-divider-soft: #edf0f3;
+  --color-score-ink: #000;
+  --color-inspection-hover: #2563eb;
+  --color-inspection-active: #e32616;
+  --color-selection: #16724b;
+  --color-selection-surface: #e6f0e9;
+  --color-selection-drag-surface: #16724b18;
+  --selection-padding: 6px;
+  --selection-stroke: 2px;
+  --note-focus-width: .5px;
+  --note-focus-offset: .75px;
+  --drag-threshold: 4;
+  --inspection-hover-stroke: .2;
+  --inspection-active-stroke: .3;
+
+  --font-ui: system-ui, sans-serif;
+  --font-source: ui-monospace, monospace;
+  --weight-emphasis: 650;
+  --text-caption: 10px;
+  --text-small: 11px;
+  --text-detail: 12px;
+  --text-help: 13px;
+  --text-body: 14px;
+  --text-summary: 15px;
+  --text-brand: 17px;
+  --text-disclosure: 18px;
+  --text-title: 20px;
+  --text-close: 24px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-tight: 6px;
+  --space-detail: 14px;
+  --space-panel: 18px;
+
+  --radius-small: 4px;
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --radius-sheet: 16px;
+  --radius-source: 7px;
+  --shadow-help: 0 8px 30px #23344a20;
+  --shadow-paper: 0 2px 12px #24354a17, 0 0 0 1px #24354a09;
+  --shadow-inspection: 0 5px 20px #23344a18, 0 1px 4px #23344a0a;
+
+  --toolbar-height: 68px;
+  --control-size: 40px;
+  --disclosure-size: 44px;
+  --inspection-width: 29rem;
+  --hint-width: 32rem;
+  --help-width: 300px;
+  --detail-label-width: 7rem;
+  --source-excerpt-height: 6rem;
+  --inspection-inset: var(--space-3);
+  --inspection-gap: var(--space-4);
+  --source-scroll-inset: var(--space-3);
+  --motion-open-duration: 140ms;
+  --motion-change-duration: 100ms;
+  --motion-open-offset: 3px;
+  --motion-resize-duration: 220ms;
+  --motion-easing: ease-in-out;
+}
+
+/* Base and accessibility */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--color-workspace); color: var(--color-text); font: var(--text-body)/1.5 var(--font-ui); }
+
+/* Toolbar and brand */
+header { position: fixed; inset: 0 0 auto; height: var(--toolbar-height); display: flex; align-items: center; gap: var(--space-5); padding: 10px var(--space-6); background: var(--color-toolbar); border-bottom: 1px solid var(--color-toolbar-border); z-index: 4; }
+.brand { display: flex; flex-direction: column; flex: none; line-height: 1.25; }
+.brand strong { font-size: var(--text-brand); letter-spacing: -.4px; }
+.brand small { color: var(--color-text-muted); font-size: var(--text-small); }
+
+/* Connection and freshness status */
+.viewer-status { flex: 1; min-width: 0; }
+.status-line { display: flex; align-items: center; gap: 10px; }
+#score-state { display: inline-flex; align-items: center; gap: var(--space-tight); font-size: var(--text-detail); font-weight: var(--weight-emphasis); }
+#score-state::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--color-status-idle); flex: none; }
+#score-state[data-state="current"]::before { background: var(--color-status-current); }
+#score-state[data-state="dirty"], #score-state[data-state="stale"] { color: var(--color-warning-text); }
+#score-state[data-state="dirty"]::before, #score-state[data-state="stale"]::before { background: var(--color-warning-marker); }
+#score-state[data-state="disconnected"] { color: var(--color-error-text); }
+#score-state[data-state="disconnected"]::before { background: var(--color-error-marker); }
+#page-count { color: var(--color-text-muted); font-size: var(--text-detail); }
+#status { display: block; color: var(--color-text-muted); font-size: var(--text-detail); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Controls and shortcut help */
+.viewer-controls { display: flex; align-items: center; gap: var(--space-2); }
+button, summary { font: inherit; touch-action: manipulation; }
+button { min-height: var(--control-size); border: 1px solid var(--color-control-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); padding: var(--space-tight) var(--space-3); cursor: pointer; }
+button:hover:not(:disabled), #viewer-help > summary:hover { background: var(--color-control-hover); }
+button:disabled { color: var(--color-text-disabled); cursor: default; }
+:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }
+#viewer-help > summary { display: grid; place-items: center; width: var(--control-size); height: var(--control-size); list-style: none; cursor: pointer; border: 1px solid var(--color-control-border); border-radius: var(--radius-control); font-weight: var(--weight-emphasis); }
+#viewer-help > summary::-webkit-details-marker { display: none; }
+.help-panel { position: fixed; top: calc(var(--toolbar-height) + var(--space-2)); right: var(--space-4); width: var(--help-width); max-width: calc(100vw - 2 * var(--inspection-inset)); padding: var(--space-panel); background: var(--color-surface); border: 1px solid var(--color-control-border); border-radius: var(--radius-panel); box-shadow: var(--shadow-help); }
+.help-panel strong { font-size: var(--text-summary); }
+.help-panel p { color: var(--color-text-muted); font-size: var(--text-detail); margin-bottom: 0; }
+.help-panel dl { display: grid; grid-template-columns: auto 1fr; gap: 10px; font-size: var(--text-help); }
+.help-panel dd { margin: 0; }
+kbd { font: var(--text-detail) var(--font-source); background: var(--color-key-surface); border: 1px solid var(--color-key-border); border-radius: var(--radius-small); padding: 2px 5px; }
+
+/* Score canvas (engraving dimensions and fonts remain compiler-owned) */
+main { width: max-content; min-width: 100%; padding: calc(var(--toolbar-height) + var(--space-7)) var(--space-7) var(--space-2); color: var(--color-score-ink); }
+main > svg { display: block; max-width: none; background: var(--color-paper); margin: 0 auto var(--space-7); box-shadow: var(--shadow-paper); }
+[data-note] { cursor: pointer; }
+/* SVG group outlines use score units, unlike HTML focus rings. */
+[data-measure]:focus-visible { outline-width: var(--note-focus-width); outline-offset: var(--note-focus-offset); }
+main { user-select: none; min-height: 100vh; touch-action: none; }
+#selection-area { position: fixed; pointer-events: none; z-index: 2; border: 1px dashed var(--color-selection); background: var(--color-selection-drag-surface); }
+#group-content h3 { margin: var(--space-4) 0 var(--space-2); font-size: var(--text-summary); }
+#group-content li { margin-bottom: var(--space-2); }
+.group-explanation, .group-location { font-size: var(--text-detail); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.group-note { padding: var(--space-2) 0; border-top: 1px solid var(--color-divider); }
+.group-note summary { cursor: pointer; }
+.group-note dd { margin: 0; overflow-wrap: anywhere; }
+[data-selection-region] { fill: var(--color-selection-surface); stroke: var(--color-selection); stroke-width: var(--selection-stroke); vector-effect: non-scaling-stroke; pointer-events: none; }
+
+
+/* Inspection surface and heading */
+#source-inspector { position: absolute; z-index: 3; pointer-events: none; width: var(--inspection-width); max-width: none; max-height: none; overflow: auto; scrollbar-gutter: stable; padding: var(--space-panel); border: 1px solid var(--color-inspection-border); border-radius: var(--radius-panel); background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-inspection); }
+#source-inspector[data-mode="expanded"] { pointer-events: auto; }
+#inspector-close { display: grid; place-items: center; flex: none; width: var(--control-size); padding: 0; margin: -6px -6px 0 0; border-color: transparent; font-size: var(--text-close); line-height: 1; }
+
+#source-inspector .heading { display: flex; align-items: center; gap: var(--space-3); }
+.symbol-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-tight) var(--space-3); flex: 1; min-width: 0; }
+#source-inspector[data-mapping="unavailable"] #origin-kind { color: var(--color-warning-text); }
+#source-inspector[data-mapping="unavailable"] #origin-kind::before { content: "!"; display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: var(--space-2); border-radius: 50%; background: var(--color-warning-surface); font-size: var(--text-detail); vertical-align: 2px; }
+#origin-kind { margin: 0; flex: 1 1 auto; font-size: var(--text-title); font-weight: var(--weight-emphasis); line-height: 1.35; letter-spacing: -.2px; overflow-wrap: anywhere; }
+.read-only { color: var(--color-text-muted); font-size: var(--text-caption); white-space: nowrap; background: var(--color-badge-surface); border-radius: var(--radius-small); padding: 2px 5px; }
+
+/* Musical summary */
+#duration-origin { color: var(--color-text-muted); font-size: var(--text-detail); }
+#origin-summary { margin: var(--space-3) 0 3px; font-size: var(--text-summary); overflow-wrap: anywhere; }
+#origin-qualification { margin: 0 0 var(--space-3); color: var(--color-text-muted); font-size: var(--text-detail); }
+
+/* Source location and excerpt */
+.source-block { margin-top: var(--space-detail); }
+.source-label { color: var(--color-text-muted); font-size: var(--text-caption); font-weight: var(--weight-emphasis); letter-spacing: .7px; text-transform: uppercase; }
+#source-path { margin: var(--space-1) 0 var(--space-2); }
+#source-path > summary { color: var(--color-text-muted); font: var(--text-detail)/1.5 var(--font-source); cursor: pointer; overflow-wrap: anywhere; }
+#origin-full-path { margin-top: var(--space-tight); color: var(--color-text-muted); font: var(--text-detail)/1.5 var(--font-source); overflow-wrap: anywhere; }
+#source-inspector pre { margin: 0; padding: var(--space-3); background: var(--color-source-surface); border: 0; border-radius: var(--radius-source); max-height: var(--source-excerpt-height); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2; font: var(--text-detail)/1.6 var(--font-source); }
+#origin-focus { border-radius: 2px; background: var(--color-source-highlight); color: inherit; }
+#origin-hint { margin-top: var(--space-3); max-width: var(--hint-width); font-size: var(--text-detail); color: var(--color-text-muted); }
+#origin-reason:empty, #origin-summary:empty, #origin-hint:empty { display: none; }
+
+/* Technical disclosure and field groups */
+#technical-details { margin-top: var(--space-detail); border-top: 1px solid var(--color-divider); }
+#technical-details > summary { display: flex; align-items: center; min-height: var(--disclosure-size); gap: var(--space-2); list-style: none; font-size: var(--text-detail); font-weight: var(--weight-emphasis); cursor: pointer; }
+#technical-details > summary::-webkit-details-marker { display: none; }
+#technical-details > summary::before { content: '›'; font-size: var(--text-disclosure); }
+#technical-details[open] > summary::before { transform: rotate(90deg); }
+#origin-context { margin: var(--space-1) 0 0; font-size: var(--text-detail); }
+.detail-group { display: grid; grid-template-columns: minmax(var(--detail-label-width), auto) minmax(0, 1fr); gap: var(--space-2) var(--space-detail); padding: var(--space-2) 0; }
+.detail-group + .detail-group { border-top: 1px solid var(--color-divider-soft); margin-top: var(--space-1); padding-top: var(--space-3); }
+#origin-context dt { color: var(--color-text-muted); }
+#origin-context dd { margin: 0; overflow-wrap: anywhere; }
+#origin-reason { font-size: var(--text-detail); color: var(--color-text-muted); }
+
+/* Assistive text */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Responsive layouts: 600px compact toolbar, 380px stacked fields */
+@media (max-width: 600px) {
+  :root { --toolbar-height: 78px; }
+  header { padding: var(--space-2) var(--space-3); gap: var(--space-3); }
+  .brand small { display: none; }
+  .brand strong { font-size: var(--text-summary); }
+  #status { white-space: normal; font-size: var(--text-small); line-height: 1.3; max-height: 2.6em; }
+  #page-count { display: none; }
+  .viewer-controls { gap: var(--space-1); }
+  main { padding-left: var(--space-3); padding-right: var(--space-3); }
+  #source-inspector { padding: var(--space-4); }
+}
+@media (max-width: 380px) { .detail-group { grid-template-columns: 1fr; gap: 3px; } #origin-context dd { margin-bottom: var(--space-2); } }
+/* score-font-aliases */
+</style>
+<header aria-label="Score viewer">
+  <div class="brand"><strong>Lylip</strong><small>Score viewer</small></div>
+  <div class="viewer-status">
+    <div class="status-line"><span id="score-state" data-state="loading" role="status" aria-live="polite" aria-atomic="true">Loading score</span><span id="page-count"></span></div>
+    <span id="status" role="status" aria-live="polite" aria-atomic="true">Connecting to Neovim…</span>
+  </div>
+  <div class="viewer-controls">
+    <button id="show-details" type="button" aria-controls="source-inspector" disabled>Details</button>
+    <details id="viewer-help"><summary aria-label="Viewer shortcuts" title="Viewer shortcuts">?</summary><div class="help-panel">
+      <strong>Reading your score</strong><dl><dt>Hover</dt><dd>Preview symbol and source</dd><dt>Drag on the score or its margins</dt><dd>Draw a rectangle to select notes; the first enclosed note sets the measure</dd><dt>Click selected area</dt><dd>Reopen its chord card</dd><dt>Space on a focused note</dt><dd>Add or remove it from the selection</dd><dt>Click</dt><dd>Show technical details and open source</dd><dt><kbd>F7</kbd></dt><dd>Show the symbol at your Neovim cursor</dd><dt><kbd>Esc</kbd></dt><dd>Close the card; press again to clear selected notes</dd></dl>
+      <p>Use your browser’s zoom controls. After editing, save and press F5 in Neovim to update the score.</p>
+    </div></details>
+  </div>
+</header>
+<main aria-label="Compiled score"></main>
+<div id="selection-area" hidden></div>
+<aside id="source-inspector" role="tooltip" tabindex="-1" hidden>
+  <div class="heading"><div class="symbol-heading"><h2 id="origin-kind">Score symbol</h2><small class="read-only">Read-only</small></div><button id="inspector-close" type="button" aria-label="Close symbol details" title="Close (Escape)" hidden>×</button></div>
+  <section id="origin-details" aria-label="Musical summary" hidden><p id="origin-summary"><span id="duration-origin"></span></p><p id="origin-qualification"></p></section>
+  <div class="source-block"><span class="source-label">Source at last build</span><details id="source-path"><summary title="Show full source path"><span id="origin-location"></span></summary><div id="origin-full-path"></div></details><pre aria-label="LilyPond source at last build"><span id="origin-before"></span><mark id="origin-focus"></mark><span id="origin-after"></span></pre></div>
+  <details id="technical-details" hidden><summary>Technical details</summary><dl id="origin-context"></dl><p id="origin-reason"></p></details>
+  <section id="group-content" aria-label="Selected notes and possible chords" hidden></section>
+  <div id="origin-hint"></div>
+</aside>
+<div id="inspection-announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<script type="module" src="viewer.js"></script>
+</html>

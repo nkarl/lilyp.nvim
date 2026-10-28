@@ -1,0 +1,8 @@
+/doc/tags
+/build/
+/nvim.log
+*.swp
+*.swo
+
+__pycache__/
+*.pyc

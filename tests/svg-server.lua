@@ -1,0 +1,30 @@
+local root=vim.fn.fnamemodify(debug.getinfo(1,'S').source:sub(2),':p:h:h')
+vim.opt.rtp:prepend(root)
+local http=dofile(root..'/tests/support/http.lua')
+local server=require('lilyp.viewer_server').start(function(method,target,body)
+  if method=='GET' and target=='state?revision=' then return 200,{revision='test'} end
+  if method=='POST' and target=='click' then return 200,vim.json.decode(body) end
+  return 404,{error='Unknown route'}
+end)
+local other=require('lilyp.viewer_server').start(function()error('Wrong session')end)
+local url=server.url
+assert(http.json(url,'state?revision=').revision=='test')
+assert(http.json(url,'click',{key=2}).key==2)
+local status,_,headers=http.request(url,'state?revision=')
+assert(status==200 and headers:find('Content-Security-Policy:',1,true) and headers:find('Cache-Control: no-store',1,true))
+assert(http.request(url,'click',{key=0},{Origin='https://example.org'})==403)
+assert(http.request(url,'state?revision=',nil,{Host='attacker.example'})==403)
+assert(http.request(url,'../main.ly')==404)
+local port,prefix=url:match('^http://127%.0%.0%.1:(%d+)(/.*)$')
+local other_prefix=other.url:match('^http://127%.0%.0%.1:%d+(/.*)$')
+local function raw(headers,body,target,split)
+  return http.raw(tonumber(port),'POST '..(target or prefix..'click')..' HTTP/1.1\r\nHost: 127.0.0.1:'..port..'\r\nOrigin: http://127.0.0.1:'..port..'\r\n'..headers..'\r\n\r\n'..(body or ''),split)
+end
+assert(raw('Content-Length: 2\r\nContent-Type: application/json','{}',other_prefix..'click')==403)
+assert(raw('Content-Length: 2\r\nContent-Length: 2\r\nContent-Type: application/json','{}')==400)
+assert(raw('Transfer-Encoding: chunked\r\nContent-Length: 2\r\nContent-Type: application/json','{}')==403)
+assert(raw('Content-Length: 5000\r\nContent-Type: application/json')==413)
+assert(raw('Content-Length: 2\r\nContent-Type: application/json','{}',nil,true)==200,'Split TCP reads failed')
+assert(raw('Content-Length: 2\r\nContent-Type: application/json','{}extra')==400)
+server.close();other.close()
+print('PASS: native Lua HTTP transport, split reads, session/Host/Origin isolation, CSP, route restrictions, request bounds, duplicate-header and chunked-body rejection, and clean shutdown')

@@ -1,0 +1,108 @@
+local root=vim.fs.dirname(vim.fs.dirname(debug.getinfo(1,'S').source:sub(2)))
+vim.opt.rtp:prepend(root)
+local ui=require('lilyp.ui')
+local fs=require('lilyp.fs')
+local form=require('lilyp.form')
+local function press(state,key)
+  for _,map in ipairs(vim.api.nvim_buf_get_keymap(state.buf,'n')) do if map.lhs==key then return map.callback() end end
+  error('Missing mapping '..key)
+end
+local function check(state)
+  local lines=vim.api.nvim_buf_get_lines(state.buf,0,-1,false)
+  assert(#lines==vim.api.nvim_win_get_height(state.win))
+  for _,line in ipairs(lines) do assert(vim.fn.strdisplaywidth(line)<=vim.api.nvim_win_get_width(state.win)-2,'Overflow: '..line) end
+  assert(not vim.bo[state.buf].modifiable)
+end
+local project=fs.stage(fs.snapshot(root..'/tests/fixtures'))
+local session=require('lilyp.session').open(project)
+local _,yaml=session:render();session:close();fs.write(project..'/score.yaml',yaml)
+local original=fs.snapshot(project)
+vim.o.columns,vim.o.lines=180,48
+local state=ui.open(project)
+assert(state.layout.three and state.layout.show_center and state.layout.show_settings)
+assert(#state.workspace_view.outline==2,'Configuration categories leaked into the project outline')
+assert(state.center_content_view.lines[1]=='Score defaults')
+state.select_scope('refrain')
+assert(state.center_content_view.lines[3]=='Declared section','Section Overview failed to render')
+assert(table.concat(state.center_content_view.lines,'\n'):find('sections/refrain.ily',1,true))
+state.select_scope(nil)
+state.show_center('Changes')
+assert(table.concat(state.center_content_view.lines,'\n'):find('No pending project changes.',1,true),'No-op Apply must not display serialization-only changes')
+state.focus='settings';state.redraw()
+press(state,'<Tab>');assert(state.focus=='navigation')
+press(state,'<Tab>');assert(state.focus=='center')
+press(state,'<Tab>');assert(state.focus=='settings')
+press(state,'<S-Tab>');assert(state.focus=='center')
+press(state,'S')
+assert(state.center_tab=='Source' and state.center_content_view.source)
+assert(state.center_content_view.lines[state.center_content_view.focus_line]:find('set-global-staff-size',1,true))
+state.switch_tab(3);state.selection=2;state.redraw()
+assert(state.center_content_view.lines[state.center_content_view.focus_line]:find('LyricText.font-size',1,true),'Source did not follow the selected control')
+local saved=vim.ui.select
+vim.ui.select=function(files,_,callback)
+  assert(vim.tbl_contains(files,'sections/refrain.ily'));callback('sections/refrain.ily')
+end
+state.focus='center';press(state,'f');vim.ui.select=saved
+assert(state.center_content_view.selected=='sections/refrain.ily')
+local before_field=state.selection
+press(state,'<C-D>');assert(state.selection==before_field,'Center scrolling changed the selected control')
+local scrolled=state.center_cursor
+assert(scrolled>1)
+press(state,'I');assert(state.inspector_closed and not state.layout.show_settings)
+press(state,'I');assert(not state.inspector_closed and state.layout.show_settings)
+local before_width=state.layout.settings_width
+press(state,'}');assert(state.layout.settings_width>before_width)
+press(state,'{');assert(state.layout.settings_width==before_width)
+
+assert(state.set('lyric_size',3))
+assert(state.workspace_view.outline[1].dirty)
+press(state,'D')
+local changes=table.concat(state.center_content_view.lines,'\n')
+assert(changes:find('@@',1,true) and changes:find('font-size = #3',1,true))
+local plan=state.center_content_view
+state.redraw();assert(state.center_content_view==plan,'Unchanged plans were recomputed')
+state.select_scope('refrain');state.switch_tab(3);assert(state.set('lyric_size',2))
+assert(state.workspace_view.outline[2].dirty)
+press(state,'O')
+assert(table.concat(state.center_content_view.lines,'\n'):find('sections/refrain.ily',1,true))
+
+for _,size in ipairs({{72,27},{100,32},{120,27},{120,40},{180,48}}) do
+  vim.o.columns,vim.o.lines=unpack(size);vim.api.nvim_exec_autocmds('VimResized',{})
+  state.focus='settings';state.inspector_closed=false;state.redraw();check(state)
+  press(state,'S');check(state)
+  if size[1]<120 then assert(not state.layout.show_settings and state.layout.show_center) end
+  press(state,'<CR>');assert(state.layout.show_settings and state.focus=='settings');check(state)
+  -- The inspector can edit with the source pane visible and survive a geometry change.
+  state.select_scope(nil);state.switch_tab(1);state.selection=1;state.redraw()
+  press(state,'<CR>');local editing=assert(state.editing)
+  vim.api.nvim_buf_set_lines(state.buf,editing.row-1,editing.row,false,{editing.prefix..'18'})
+  vim.o.columns=160;vim.api.nvim_exec_autocmds('VimResized',{})
+  assert(not state.editing and state.session.draft.staff_size==18);check(state)
+end
+state.close()
+assert(vim.deep_equal(original,fs.snapshot(project)),'Navigation/inspection/drafts wrote project sources')
+
+require('lilyp.scaffold').setup({title='Three-pane creation',composer='',preset='treble',key='c',mode='major',meter='4/4',tempo=100,
+  paper='a4',lyrics=true,midi=true,engraving_mode='default',instrument_inventory=vim.env.LILYPOND_INSTRUMENT_INVENTORY})
+local creation=ui.new()
+creation.select_outline('section_a')
+assert(creation.presentation_section=='section_a' and creation.instrument_section=='section_a')
+assert(creation.set('section_key','d') and creation.set('section_mode','minor') and creation.set('section_meter','3/4'))
+press(creation,'O')
+local overview=table.concat(creation.center_content_view.lines,'\n')
+assert(overview:find('Key: d minor',1,true) and overview:find('Time signature: 3/4',1,true))
+assert(creation.set('style:lyric_size',2))
+assert(creation.workspace_view.outline[2].dirty)
+press(creation,'S')
+assert(creation.center_content_view.lines[creation.center_content_view.focus_line]:find('font-size = #2',1,true))
+press(creation,'D');assert(table.concat(creation.center_content_view.lines,'\n'):find('font-size = #2',1,true))
+creation.select_outline(nil);press(creation,'O')
+assert(creation.outline_section==nil and creation.center_content_view.title=='Score defaults')
+creation.close()
+assert(ui.current()==nil)
+local retained=ui.open(project)
+local another=ui.new()
+vim.api.nvim_win_close(another.win,true)
+assert(ui.current()==nil and retained.closed and another.closed,'Idle external close deferred draft disposal')
+assert(not vim.api.nvim_buf_is_valid(retained.buf) and not vim.api.nvim_buf_is_valid(another.buf))
+print('PASS: three-pane outline/overview/source/diff, source linking/picker/cache, pane focus, collapse/resize, compact fallback, inline editing, creation scopes, and read-only cleanup')

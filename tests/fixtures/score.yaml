@@ -1,0 +1,15 @@
+# Preserve this project description and its comments.
+schema_version: 1
+kind: lilypond-score
+title: Curator fixture
+language: vi
+source:
+  main: main.ly
+  style: style.ily
+sections:
+  - id: refrain
+    source: sections/refrain.ily
+playback:
+  section_order: [refrain]
+notes:
+  - Musical source stays handwritten.

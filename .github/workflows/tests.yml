@@ -1,0 +1,51 @@
+name: Portable tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim: [v0.11.5, stable]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git curl libyaml-0-2 fontconfig fonts-dejavu-core fonts-noto-core poppler-utils
+          echo "/usr/bin" >> "$GITHUB_PATH"
+      - name: Install Neovim
+        env:
+          NVIM_VERSION: ${{ matrix.neovim }}
+        run: |
+          if [ "$NVIM_VERSION" = stable ]; then
+            nvim_download="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
+          else
+            nvim_download="https://github.com/neovim/neovim/releases/download/$NVIM_VERSION/nvim-linux-x86_64.tar.gz"
+          fi
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/neovim.tar.gz" "$nvim_download"
+          tar -xzf "$RUNNER_TEMP/neovim.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
+      - name: Check core portability
+        run: nvim --headless -u NONE -i NONE -l scripts/test.lua core
+      - name: Install LilyPond 2.26.0
+        run: |
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/lilypond.tar.gz" "https://gitlab.com/lilypond/lilypond/-/releases/v2.26.0/downloads/lilypond-2.26.0-linux-x86_64.tar.gz"
+          mkdir "$RUNNER_TEMP/lilypond"
+          tar -xzf "$RUNNER_TEMP/lilypond.tar.gz" -C "$RUNNER_TEMP/lilypond" --strip-components=1
+          echo "$RUNNER_TEMP/lilypond/bin" >> "$GITHUB_PATH"
+      - name: Check compilation and presentation preservation
+        run: nvim --headless -u NONE -i NONE -l scripts/test.lua compiler
+      - name: Check section, creation, readability, and generator regressions
+        run: nvim --headless -u NONE -i NONE -l scripts/test.lua extended

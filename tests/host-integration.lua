@@ -1,0 +1,32 @@
+local root=vim.fs.dirname(vim.fs.dirname(debug.getinfo(1,'S').source:sub(2)))
+vim.opt.rtp:prepend(root)
+for _,name in ipairs({'nvim-lilypond-suite','telescope.nvim','plenary.nvim'}) do
+  vim.opt.rtp:append(vim.fn.stdpath('data')..'/lazy/'..name)
+end
+require('nvls').setup({player={options={audio_format='wav'}}})
+require('telescope').setup({})
+require('lilyp').setup({build_integration=true})
+require('telescope').load_extension('lilyp')
+assert(rawget(require('telescope').extensions,'lilypond_curator')==nil and rawget(require('telescope').extensions,'lilypond')==nil, 'Host eagerly loaded the compatibility namespace')
+assert(vim.fn.exists(':Lylip')==2 and vim.fn.exists(':LilyCurator')==2 and vim.fn.exists(':LilyNewScore')==2)
+local telescope=require('telescope')
+assert(type(telescope.extensions.lilypond.curate)=='function')
+assert(type(telescope.extensions.lilyp.new_score)=='function')
+vim.o.columns,vim.o.lines=120,40
+local generator=telescope.extensions.lilyp.new_score()
+assert(generator.options.project_mode=='project');generator.close()
+local fs=require('lilyp.fs')
+local project=fs.stage(fs.snapshot(root..'/tests/fixtures'))
+vim.cmd.edit(vim.fn.fnameescape(project..'/main.ly'))
+vim.bo.filetype='lilypond'
+local before=fs.snapshot(project)
+telescope.extensions.lilyp.lilyp()
+local prompt=vim.api.nvim_get_current_buf()
+assert(require('telescope.actions.state').get_current_picker(prompt).prompt_title=='Lylip',
+  'The legacy host extension must use the unified home picker')
+require('telescope.actions').close(prompt)
+local curator=telescope.extensions.lilypond.curate()
+assert(curator.session.root==project and not curator.session.specified)
+curator.switch_tab(5);assert(curator.tab==5);curator.close()
+assert(vim.deep_equal(before,fs.snapshot(project)))
+print('PASS: public setup, compatibility entry points, commands, Telescope generation/curation routing, and read-only open')

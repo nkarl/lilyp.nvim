@@ -1,0 +1,4 @@
+/* Resolve LilyPond's internal alias without replacing explicit user families. */
+main [font-family="LilyPond Sans Serif"] {
+  font-family: "Nimbus Sans", "TeX Gyre Heros", sans-serif;
+}
