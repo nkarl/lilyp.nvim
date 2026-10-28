@@ -39,7 +39,7 @@ With lazy.nvim:
 ```lua
 {
   'nkarl/lilyp.nvim',
-  tag = 'v0.1',
+  tag = 'v0.1.1',
   config = function()
     require('lilyp').setup({
       navigation = { enabled = true },
@@ -101,7 +101,7 @@ Replace the minimal lazy.nvim entry above with this one. The dependency configur
 ```lua
 {
   'nkarl/lilyp.nvim',
-  tag = 'v0.1',
+  tag = 'v0.1.1',
   dependencies = {
     {
       'martineausimon/nvim-lilypond-suite',
@@ -172,3 +172,7 @@ The core Lylip commands work without the suite; the integration is optional.
 Projects use `score.yaml` with `kind: lilypond-score`, a main source (`main.ly` by default), and a style source (`style.ily` by default). New Score creates this structure for you.
 
 YAML stores the layout settings you choose to manage. Custom LilyPond code is preserved; ambiguous styling needs manual editing. Apply validates changes and rolls back caught write failures, but a crash can leave a partial update. Keep your scores in version control.
+
+## License
+
+[MIT](LICENSE). Bundled libraries retain their own [license notices](lua/lilyp/vendor/README.md).
